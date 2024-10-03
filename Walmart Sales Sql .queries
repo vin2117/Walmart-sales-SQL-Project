@@ -1,0 +1,286 @@
+create database walmartsales;
+create table sales(
+invoice_id varchar(30) not null primary key,
+branch varchar(5) not null,
+city varchar(30) not null,
+customer_type varchar(30) not null,
+gender varchar(10) not null,
+product_line VARCHAR(100) not null,
+unit_price DECIMAL(10, 2) not null,
+quantity INT not null,
+VAT	FLOAT not null,
+total DECIMAL(12, 4) not null,
+date DATE not null,
+time TIME not null,
+payment	varchar(15) not null,
+cogs DECIMAL(10, 2) not null,
+gross_margin_pct FLOAT,
+gross_income DECIMAL(12, 4),
+rating FLOAT
+);
+
+## 📥 Data Import from External File
+# After creating the SQL table to store the sales data, we imported the data from an external file (e.g., CSV format). Here’s how we approached the import process:
+
+1. **File Preparation**: Ensure that the external file is well-structured and contains the necessary columns that match the SQL table schema. This alignment is crucial for a smooth import process.
+
+2. **Use of Database Management Tools**: We utilized database management tools (such as MySQL Workbench or command line tools) that provide functionality to import external files directly into the SQL table. 
+
+3. **Select Import Options**: During the import process, select options such as:
+   - **Field Separator**: Specify the character that separates the fields in the file (e.g., commas for CSV).
+   - **Text Qualifier**: Define how text fields are encapsulated (e.g., double quotes).
+   - **Skip Header Rows**: If the file includes header rows, ensure to skip them to avoid importing column names as data.
+
+4. **Verification of Imported Data**: After the import, it is essential to verify the integrity of the data by running queries to check for any discrepancies or issues.
+
+5. **Data Validation**: Conduct validation checks to ensure that the data types and formats are consistent and that there are no errors in the imported data.
+
+This method allowed us to efficiently populate the SQL table with relevant sales data from the external file, enabling robust data analysis.
+
+-----------------------------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------------------------------
+# 1] Time_of_day column creation
+select time,  -- Select the time column
+(case 
+    when time between '00:00:00' and '12:00:00' then "Morning"  -- Assign "Morning" for times from midnight to noon
+    when time between '12:01:00' and '14:00:00' then "Afternoon"  -- Assign "Afternoon" for times from 12:01 PM to 2 PM
+    else "Evening"  -- Assign "Evening" for all other times
+end) as time_of_day  -- Create a new column alias for the time of day
+from sales;  -- From the sales table
+
+# Add the time_of_day column to the sales table
+alter table sales 
+add column time_of_day varchar(15);  -- Define the column as a string with a maximum length of 15 characters
+
+# Update the sales table to populate the time_of_day column based on the time
+update sales
+set time_of_day = (case 
+    when time between '00:00:00' and '12:00:00' then "Morning"  -- Assign "Morning"
+    when time between '12:01:00' and '14:00:00' then "Afternoon"  -- Assign "Afternoon"
+    else "Evening"  -- Assign "Evening"
+end);  -- End of the case statement
+
+# 2] Day_name column creation
+select date,  -- Select the date column
+dayname(date) as day_name  -- Create a new column alias for the name of the day
+from sales;  -- From the sales table
+
+# Add the day_name column to the sales table
+alter table sales
+add column day_name varchar(15);  -- Define the column as a string with a maximum length of 15 characters
+
+# Update the sales table to populate the day_name column based on the date
+update sales
+set day_name = dayname(date);  -- Set the day_name column using the dayname function
+
+# 3] Month_name column creation
+select date,  -- Select the date column
+monthname(date) as month_name  -- Create a new column alias for the name of the month
+from sales;  -- From the sales table
+
+# Add the month_name column to the sales table
+alter table sales
+add column month_name varchar(15);  -- Define the column as a string with a maximum length of 15 characters
+
+# Update the sales table to populate the month_name column based on the date
+update sales
+set month_name = monthname(date);  -- Set the month_name column using the monthname function
+
+------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------
+# Exploratory data analysis (EDA)
+
+# Generic Questions
+# 1] How many distinct cities are present in the dataset?
+select distinct city from sales;  -- Select distinct cities from the sales data
+
+# 2] In which city is each branch situated?
+select distinct city, branch from sales;  -- Select distinct city and branch combinations
+
+# Product Analysis
+# 1] How many distinct product lines are there in the dataset?
+select count(distinct product_line) from sales;  -- Count of distinct product lines in the sales data
+select distinct product_line from sales;  -- Select distinct product lines from the sales data
+
+# 2] What is the most common payment method?
+select payment, count(payment) as most_common_payment  -- Count occurrences of each payment method
+from sales
+group by payment  -- Group by payment method
+order by most_common_payment desc limit 1;  -- Order by count and limit to the top result
+
+# 3] What is the most selling product line?
+select product_line, count(product_line) as most_selling_product  -- Count occurrences of each product line
+from sales
+group by product_line  -- Group by product line
+order by most_selling_product desc limit 1;  -- Order by count and limit to the top result
+
+# 4] What is the total revenue by month?
+select month_name, sum(total) as total_revenue  -- Sum of total revenue grouped by month
+from sales
+group by month_name  -- Group by month name
+order by total_revenue desc;  -- Order by total revenue in descending order
+
+# 5] Which month recorded the highest Cost of Goods Sold (COGS)?
+select month_name, sum(cogs) as highest_cogs  -- Sum of COGS grouped by month
+from sales
+group by month_name  -- Group by month name
+order by highest_cogs desc limit 1;  -- Order by total COGS and limit to the top result
+
+# 6] Which product line generated the highest revenue?
+select product_line, sum(total) as highest_revenue  -- Sum of total revenue for each product line
+from sales
+group by product_line  -- Group by product line
+order by highest_revenue desc limit 1;  -- Order by revenue and limit to the top result
+
+# 7] Which city has the highest revenue?
+select city, sum(total) as highest_revenue  -- Sum of total revenue for each city
+from sales
+group by city  -- Group by city
+order by highest_revenue desc limit 1;  -- Order by revenue and limit to the top result
+
+# 8] Which product line incurred the highest VAT?
+select product_line, sum(VAT) as highest_VAT  -- Sum of VAT for each product line
+from sales
+group by product_line  -- Group by product line
+order by highest_VAT desc limit 1;  -- Order by salesVAT and limit to the top result
+
+# 9] Retrieve each product line and add a column product_category, 
+# indicating 'Good' or 'Bad,' based on whether 
+# its sales are above the average.
+
+ALTER TABLE sales ADD COLUMN product_category VARCHAR(20);
+
+SET @avg_total = (SELECT AVG(total) FROM sales);
+
+-- Disable safe update mode
+SET SQL_SAFE_UPDATES = 0;
+
+-- Perform the update
+UPDATE sales
+SET product_category = (
+    CASE
+        WHEN total >= @avg_total THEN 'Good'
+        ELSE 'Bad'
+    END
+);
+
+-- Re-enable safe update mode
+SET SQL_SAFE_UPDATES = 1;
+
+select product_category from sales;
+
+# 10] Which branch sold more products than the average products sold?
+select branch, sum(quantity) as more_product_sold from sales  -- Sum of quantity sold for each branch
+group by branch  -- Group by branch
+having more_product_sold > (select avg(quantity) from sales)  -- Filter branches with sales above average
+order by more_product_sold desc limit 1;  -- Order by quantity sold and limit to the top result
+
+# 11] What is the most common product line by gender?
+select product_line, gender, most_common_product_line  -- Select product line, gender, and count of product line
+from (
+    select
+        product_line,
+        gender,
+        count(product_line) as most_common_product_line,  -- Count occurrences of each product line by gender
+        row_number() over (partition by gender order by count(product_line) desc) as rn  -- Assign row numbers partitioned by gender
+    from sales
+    group by product_line, gender  -- Group by product line and gender
+) as ranked 
+where rn = 1;  -- Filter to get the top result for each gender
+
+# 12] What is the average rating of each product line?
+select product_line, avg(rating) as avg_rating  -- Calculate the average rating for each product line
+from sales
+group by product_line  -- Group by product line
+order by avg_rating desc;  -- Order by average rating in descending order
+
+
+# Sales Analysis
+
+# 1] Number of sales made in each time of the day per weekday
+select dayname(date) as weekday, time_of_day, count(*) as number_of_sales  -- Select weekday and time_of_day, count total sales
+from sales
+group by weekday, time_of_day  -- Group by weekday and time_of_day
+order by number_of_sales desc;  -- Order by the number of sales in descending order
+
+# Additional query to view time and time_of_day (for reference)
+select time, time_of_day from sales;  -- Select time and time_of_day for inspection
+
+# 2] Identify the customer type that generates the highest revenue.
+select customer_type, sum(total) as highest_revenue  -- Calculate total revenue for each customer type
+from sales
+group by customer_type  -- Group by customer type
+order by highest_revenue desc limit 1;  -- Order by revenue and limit to the top result
+
+# 3] Which city has the largest tax percent/VAT (Value Added Tax)?
+select city, sum(VAT) as largest_tax_percent  -- Sum of VAT for each city
+from sales
+group by city  -- Group by city
+order by largest_tax_percent desc limit 1;  -- Order by total VAT and limit to the top result
+
+# 4] Which customer type pays the most VAT?
+select customer_type, sum(VAT) as most_VAT_paid  -- Sum of VAT paid by each customer type
+from sales
+group by customer_type  -- Group by customer type
+order by most_VAT_paid desc limit 1;  -- Order by VAT paid and limit to the top result
+
+# Customer Analysis
+# 1] How many unique customer types does the data have?
+select count(distinct customer_type) as unique_customer_type  -- Count of distinct customer types
+from sales;
+
+# 2] How many unique payment methods does the data have?
+select count(distinct payment) as unique_payment  -- Count of distinct payment methods
+from sales;
+
+# 3] Which is the most common customer type?
+select customer_type, count(customer_type) as most_common_type  -- Count occurrences of each customer type
+from sales
+group by customer_type  -- Group by customer type
+order by most_common_type desc limit 1;  -- Order by count and limit to the top result
+
+# 4] Which customer type buys the most?
+select customer_type, sum(unit_price * quantity) as most_buying  -- Sum of purchases for each customer type
+from sales
+group by customer_type  -- Group by customer type
+order by most_buying desc limit 1;  -- Order by total purchases and limit to the top result
+
+# 5] What is the gender of most of the customers?
+select gender, count(gender) as most_gender  -- Count occurrences of each gender
+from sales
+group by gender  -- Group by gender
+order by most_gender desc limit 1;  -- Order by count and limit to the top result
+
+# 6] What is the gender distribution per branch?
+select gender, count(gender) as count_gender, branch  -- Count occurrences of each gender per branch
+from sales
+group by gender, branch  -- Group by gender and branch
+order by branch, count_gender desc;  -- Order by branch and count in descending order
+
+# 7] Which time of the day do customers give the most ratings?
+select time_of_day, count(rating) as rating_count  -- Count ratings for each time of day
+from sales
+group by time_of_day  -- Group by time of day
+order by rating_count desc limit 1;  -- Order by count of ratings and limit to the top result
+
+# 8] Which time of the day do customers give the most ratings per branch?
+select time_of_day, branch, count(rating) as total_rating  -- Count ratings for each time of day per branch
+from sales
+group by time_of_day, branch  -- Group by time of day and branch
+order by branch, total_rating desc;  -- Order by branch and total ratings in descending order
+
+# 9] Which day of the week has the best average ratings?
+select dayname(date) as week_day, avg(rating) as avg_rating  -- Calculate average ratings for each day of the week
+from sales
+group by dayname(date)  -- Group by day of the week
+order by avg_rating desc limit 1;  -- Order by average rating and limit to the top result
+
+# 10] Which day of the week has the best average ratings per branch?
+with rating_counts as (  -- Create a common table expression (CTE) for average ratings by day and branch
+    select day_name as week_day, branch, avg(rating) as avg_rating  -- Select day, branch, and average rating
+    from sales
+    group by day_name, branch  -- Group by day name and branch
+)
+select week_day, branch, avg_rating  -- Select week day, branch, and average rating from the CTE
+from rating_counts as rc
+where avg_rating = (select max(avg_rating) from rating_counts where branch = rc.branch);  -- Filter for max average rating per branch
